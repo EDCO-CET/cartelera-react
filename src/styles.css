@@ -1,0 +1,1169 @@
+/* ==========================================================================
+   Cartelera de eventos - Hoja de estilos principal
+   Estrategia de layout:
+   - CSS Grid para layouts bidimensionales (página, columnas, tarjetas, formulario).
+   - Flexbox solo para alineaciones en una dimensión (header, nav, acciones de tarjeta).
+   ========================================================================== */
+
+/* Variables globales (design tokens) */
+:root {
+  --primary-color: #2589C9;
+  --secondary-color: #063E5F;
+  --accent-color: #4f8cff;
+  --text-color: #e8eaf0;
+  --white-color: #FFFFFF;
+  --background-color: #0f1117;
+  --border-color: #2a2f3d;
+  --success-color: #38c172;
+  --error-color: #ff6b6b;
+  --space: 1rem;
+  --max-width: 1400px;        /* ancho máximo del contenido (layout, header y footer) */
+  --gutter: 1rem;             /* margen lateral mínimo en pantallas angostas */
+  --sidebar-width: 15rem;     /* ancho de cada columna lateral en el layout */
+  --header-offset: 6rem;      /* espacio que dejan los elementos sticky bajo el header */
+
+  /* Tokens de movimiento (clase 8)
+     Duraciones cortas para interfaces reactivas: techo 300-500ms.
+     ease-out para elementos que entran, ease-in para los que salen. */
+  --duration-fast: 150ms;
+  --duration-base: 300ms;
+  --duration-slow: 500ms;
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+  --ease-in-out: ease-in-out;
+}
+
+/* Reset/Normalize */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Configuración base */
+html {
+  font-size: 16px;
+  background-color: var(--background-color);
+  color: var(--text-color);
+}
+
+/* --------------------------------------------------------------------------
+   Grid de página: header / contenido / footer
+   El body es un grid de una sola columna y tres filas. La fila central (1fr)
+   absorbe el espacio sobrante, de modo que el footer siempre queda al final
+   aunque haya poco contenido ("sticky footer").
+   -------------------------------------------------------------------------- */
+body {
+  display: grid;
+  /* minmax(0, 1fr): la columna nunca crece más que el viewport aunque un hijo
+     tenga contenido ancho (evita scroll horizontal en móvil) */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto 1fr auto; /* header | .hero | .layout | footer */
+  min-height: 100vh;
+  font-family: 'Lato', sans-serif;
+  font-weight: 400;
+  font-style: normal;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  line-height: 1.5;
+  row-gap: 1rem;
+}
+
+/* React: todo se dibuja dentro de <div id="root">, así que ese div es el
+   único hijo del body y rompería el grid de arriba. display: contents hace
+   que el div "desaparezca" del layout y sus hijos (header, hero, layout,
+   footer) vuelvan a ser filas del grid del body. */
+#root {
+  display: contents;
+}
+
+h1, h2, h3 {
+  color: var(--text-color);
+}
+
+a {
+  color: var(--accent-color);
+}
+
+/* --------------------------------------------------------------------------
+   Header (fila 1 del grid del body)
+   Flexbox es suficiente aquí: solo alineamos título y nav en una línea.
+   -------------------------------------------------------------------------- */
+.header {
+  display: flex;
+  flex-wrap: wrap; /* en pantallas angostas el nav baja a una segunda línea */
+  justify-content: space-between;
+  align-items: center;
+  gap: .5rem 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 10; /* que quede por encima de las tarjetas al hacer scroll */
+  /* El fondo ocupa todo el ancho, pero el contenido se alinea con el .layout:
+     el padding lateral es el mayor entre el gutter y el espacio sobrante
+     a cada lado del ancho máximo, igual que hace margin: 0 auto en .layout */
+  padding: 1rem max(var(--gutter), calc((100% - var(--max-width)) / 2));
+  /* Gradiente (clase 8, extra)
+     Un gradiente NO es un color: es una imagen generada por el navegador,
+     por eso va en background-image y puede combinarse con background-color
+     como respaldo. 135deg = de la esquina superior izquierda a la inferior
+     derecha; cada color seguido de un % es una "parada" (color stop). */
+  background-color: var(--background-color);
+  background-image: linear-gradient(
+    135deg,
+    var(--secondary-color) 0%,
+    var(--background-color) 55%
+  );
+}
+
+/* --------------------------------------------------------------------------
+   Gradiente que cambia al hacer scroll (clase 8, extra)
+   Un gradiente no se puede transicionar: el navegador no interpola entre dos
+   imágenes. Truco: un pseudoelemento con el SEGUNDO gradiente cuya opacidad
+   va de 0 a 1. Y en vez de un evento de scroll en JS, la animación la dirige
+   el propio scroll con animation-timeline: scroll() (scroll-driven animation).
+   -------------------------------------------------------------------------- */
+.header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;            /* detrás del texto, delante del fondo del header */
+  background-image: linear-gradient(
+    135deg,
+    var(--primary-color) 0%,
+    var(--secondary-color) 45%,
+    var(--background-color) 100%
+  );
+  opacity: 0;
+  /* Respaldo (JS añade .is-scrolled cuando no hay soporte de scroll()) */
+  transition: opacity var(--duration-slow) ease;
+}
+
+/* Animación dirigida por el scroll del documento: recorre los keyframes
+   entre 0 y 160px de desplazamiento, sin tiempo ni JavaScript.
+   animation-timeline debe ir DESPUÉS del atajo animation, que la resetea. */
+@supports (animation-timeline: scroll()) {
+  .header::before {
+    transition: none;
+    animation: header-encender linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 160px;
+  }
+}
+
+.header.is-scrolled::before {
+  opacity: 1;
+}
+
+@keyframes header-encender {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Línea inferior degradada: acento -> primario -> transparente.
+   Un pseudoelemento en vez de border-bottom porque los bordes solo aceptan
+   colores planos (border-image existe, pero es menos predecible). */
+.header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background-image: linear-gradient(
+    90deg,
+    var(--accent-color),
+    var(--primary-color) 40%,
+    transparent
+  );
+}
+
+/* Texto con gradiente: el fondo se recorta a la forma de las letras
+   (background-clip: text) y el color del texto se vuelve transparente
+   para que se vea el fondo a través de él. */
+.header h1 {
+  background-image: linear-gradient(90deg, var(--white-color), var(--accent-color));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.nav-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  list-style: none;
+}
+
+/* Subrayado animado con ::after.
+   La slide anima width 0 -> 100% (provoca reflow); aquí usamos transform: scaleX,
+   que se compone en GPU y cumple la regla "mueve con transform, no con width". */
+.nav-list a {
+  position: relative;
+  padding-bottom: .25rem;
+  text-decoration: none;
+}
+
+.nav-list a::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;              /* tamaño final fijo, lo que se anima es la escala */
+  height: 2px;
+  background-color: var(--accent-color);
+  transform: scaleX(0);
+  transform-origin: left;   /* la línea crece desde la izquierda */
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.nav-list a:hover::after,
+.nav-list a:focus-visible::after {
+  transform: scaleX(1);
+}
+
+/* --------------------------------------------------------------------------
+   Banner de bienvenida / hero (fila 2 del grid del body)
+   Dos fondos apilados en una sola declaración, separados por coma:
+   el primero (gradiente) queda ENCIMA del segundo (la foto). El gradiente
+   oscurece la imagen para que el texto blanco tenga contraste suficiente.
+   -------------------------------------------------------------------------- */
+.hero {
+  display: grid;
+  align-content: center;              /* centra el bloque de texto en vertical */
+  min-height: 45vh;
+  padding: 3rem max(var(--gutter), calc((100% - var(--max-width)) / 2));
+  background-image:
+    linear-gradient(
+      to right,
+      rgba(15, 17, 23, 0.9) 0%,
+      rgba(15, 17, 23, 0.6) 55%,
+      rgba(15, 17, 23, 0.2) 100%
+    ),
+    /* React/Vite: ruta absoluta desde public/ (en el proyecto JS era relativa) */
+    url("/img/banner.jpg");
+  background-size: cover;             /* la foto cubre todo el área sin deformarse */
+  background-position: center;        /* y se recorta desde el centro */
+  background-repeat: no-repeat;
+  background-color: var(--secondary-color); /* respaldo mientras carga la imagen */
+}
+
+/* Texto limitado en ancho para que las líneas sean legibles sobre la foto */
+.hero-content {
+  display: grid;
+  gap: 1rem;
+  justify-items: start;
+  max-width: 36rem;
+  /* Reutilizamos la animación de entrada de las tarjetas */
+  animation: fade-up .8s var(--ease-out) both;
+}
+
+.hero h2 {
+  font-size: clamp(2rem, 4vw, 3rem); /* escala con el viewport entre 2rem y 3rem */
+  line-height: 1.1;
+}
+
+.hero p {
+  font-size: 1.125rem;
+}
+
+/* El CTA es un enlace con aspecto de botón: hereda .btn y quita el subrayado */
+.hero-cta {
+  text-decoration: none;
+  display: inline-block;
+}
+
+@media (max-width: 600px) {
+  .hero {
+    min-height: 35vh;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Layout de contenido (fila 3 del grid del body): 3 columnas con áreas nombradas
+
+   |  featured  |        main        |   info   |
+   
+   - minmax(0, 1fr) evita que la columna central crezca por contenido ancho
+     (por defecto 1fr equivale a minmax(auto, 1fr) y puede desbordar).
+   - align-items: start evita que los asides se estiren a toda la altura de la
+     fila; sin esto, position: sticky no tiene espacio para "pegarse".
+   -------------------------------------------------------------------------- */
+.layout {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--sidebar-width);
+  grid-template-areas: "featured main info";
+  column-gap: 2rem;         /* aire entre los asides y el contenido central */
+  row-gap: 1rem;
+  align-items: start;
+  width: 100%;
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 2rem var(--gutter) 0; /* separa el contenido del banner */
+}
+
+/* Cada hijo del layout se ubica por nombre de área, no por orden en el HTML */
+.main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.aside {
+  position: sticky;
+  top: var(--header-offset);
+}
+
+.aside--featured {
+  grid-area: featured;
+}
+
+.aside--info {
+  grid-area: info;
+}
+
+/* Tablet: el contenido principal ocupa todo el ancho y los asides bajan en 2 columnas */
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "main     main"
+      "featured info";
+    row-gap: 2rem;
+  }
+
+  /* En filas apiladas ya no tiene sentido el sticky */
+  .aside {
+    position: static;
+  }
+}
+
+/* Móvil: una sola columna, en orden de lectura */
+@media (max-width: 600px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "main"
+      "featured"
+      "info";
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Sección de eventos: grid de tarjetas responsive sin media queries
+   repeat(auto-fit, minmax(...)) crea tantas columnas como quepan de mínimo
+   18rem y reparte el sobrante. min(18rem, 100%) evita desbordar en pantallas
+   más angostas que 18rem.
+   -------------------------------------------------------------------------- */
+/* Al navegar a un ancla (#events, #contact...) el destino deja espacio para
+   que el header sticky no tape el título de la sección */
+section[id],
+main[id] {
+  scroll-margin-top: 5.5rem;
+}
+
+#events {
+  margin-bottom: 2rem;
+}
+
+.events-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
+  gap: 1rem;
+}
+
+/* Card: grid de 3 filas (imagen | cuerpo | acciones).
+   La fila central en 1fr empuja las acciones al fondo, así todas las tarjetas
+   de una misma fila alinean su botón aunque el texto tenga distinta longitud. */
+.card {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: .5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  /* La transición se declara en el estado BASE, no en :hover,
+     para que también se anime al salir del hover */
+  transition:
+    transform var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) ease;
+  /* Entrada escalonada: cada tarjeta ejecuta fade-up con un delay distinto.
+     "both" (animation-fill-mode) aplica el primer keyframe antes de empezar
+     y conserva el último al terminar: evita el parpadeo inicial. */
+  animation: fade-up .6s var(--ease-out) both;
+}
+
+.card:nth-child(1) { animation-delay: .1s; }
+.card:nth-child(2) { animation-delay: .2s; }
+.card:nth-child(3) { animation-delay: .3s; }
+.card:nth-child(4) { animation-delay: .4s; }
+.card:nth-child(5) { animation-delay: .5s; }
+.card:nth-child(6) { animation-delay: .6s; }
+
+/* Elevación: translateY + sombra más profunda. No usamos top ni margin. */
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.35);
+}
+
+/* Contenedor de la imagen: recorta el zoom y posiciona la etiqueta */
+.card-media {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Texto de cupos dentro de la tarjeta */
+.card-stock {
+  display: block;
+  margin-top: .5rem;
+  font-size: .8125rem;
+  color: #9aa1b5;
+}
+
+.card-image {
+  display: block;
+  width: 100%;
+  object-fit: cover;
+  aspect-ratio: 16 / 10;
+  transition:
+    transform var(--duration-slow) ease,
+    filter var(--duration-slow) ease;
+}
+
+/* Patrón galería: el hover del PADRE dispara cambios en los HIJOS */
+.card:hover .card-image {
+  transform: scale(1.08);
+  filter: brightness(1.1) contrast(1.05);
+}
+
+/* Etiqueta que sube desde abajo. La slide anima bottom: -100% -> 0;
+   aquí translateY(100%) -> 0 hace lo mismo sin recalcular layout. */
+.card-tag {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: .5rem 1rem;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: var(--white-color);
+  font-size: .875rem;
+  transform: translateY(100%);
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.card:hover .card-tag {
+  transform: translateY(0);
+}
+
+.card-body {
+  padding: 1rem;
+}
+
+/* Acciones: una sola línea, precio a la izquierda y botón a la derecha */
+.card-actions {
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-price {
+  font-weight: bold;
+  font-size: 1.25rem;
+}
+
+/* --------------------------------------------------------------------------
+   Formulario de contacto
+   -------------------------------------------------------------------------- */
+#contact {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: min(40rem, 100%); /* nunca más ancho que su contenedor */
+}
+
+/* Campos de texto: tamaño cómodo para tocar (mínimo 44px de alto), tipografía
+   heredada del sitio (los inputs no la heredan por defecto) y colores del
+   tema oscuro. color-scheme: dark hace que los controles nativos (calendario,
+   flechas del number) se dibujen también en oscuro. */
+form input,
+form textarea {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: .625rem .875rem;
+  font: inherit;
+  color: var(--text-color);
+  background-color: #161a24;
+  border: 2px solid var(--border-color);
+  border-radius: 6px;
+  color-scheme: dark;
+  transition:
+    border-color var(--duration-base) ease,
+    box-shadow var(--duration-base) ease,
+    background-color var(--duration-base) ease;
+}
+
+form textarea {
+  min-height: 7rem;
+  resize: vertical; /* el usuario puede alargarlo, no ensancharlo */
+}
+
+form input::placeholder,
+form textarea::placeholder {
+  color: #7d849a;
+}
+
+form input:hover,
+form textarea:hover {
+  border-color: #3d4458;
+}
+
+/* :focus es accesibilidad: reemplazamos el outline por un borde + halo
+   animados, nunca lo eliminamos sin sustituto */
+form input:focus,
+form textarea:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  background-color: #1a1f2b;
+  box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.25);
+}
+
+/* Cada fieldset es un grid de campos: 2 columnas en desktop, 1 en móvil,
+   calculado automáticamente con auto-fit. */
+.form-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr));
+  gap: 1.25rem 1.5rem;
+  padding: 1.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+.form-group legend {
+  padding: 0 .5rem;
+  font-weight: bold;
+  font-size: 1.125rem;
+}
+
+/* Campo: etiqueta encima del input */
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.form-field label {
+  font-weight: 700;
+  font-size: .9375rem;
+}
+
+/* Botón de envío más alto que los .btn de las tarjetas, alineado a la derecha */
+.form-submit {
+  align-self: flex-end;
+  min-height: 2.75rem;
+  padding: .75rem 2rem;
+  font: inherit;
+  font-weight: 700;
+}
+
+@media (max-width: 600px) {
+  .form-submit {
+    align-self: stretch; /* en móvil ocupa todo el ancho: más fácil de tocar */
+  }
+}
+
+/* Campos anchos (ej. textarea) ocupan todas las columnas del fieldset */
+.form-field--full {
+  grid-column: 1 / -1;
+}
+
+/* --------------------------------------------------------------------------
+   Sección demo "Grid"
+   - Columnas mixtas: fracciones (1fr, 2fr) y una fija de 150px.
+   - grid-auto-rows define la altura de las filas implícitas, en lugar de fijar
+     un height al contenedor, para que crezcan si el contenido lo necesita.
+   -------------------------------------------------------------------------- */
+.grid-container {
+  display: grid;
+  grid-template-columns: 1fr 2fr 150px;
+  grid-auto-rows: minmax(150px, auto);
+  gap: 1rem;
+}
+
+.box {
+  /* Variables CSS como "parámetros" de la transformación.
+     El hover cambia las variables, no el transform: un solo lugar que ajustar.
+     Prueba en consola: document.documentElement.style.setProperty('--escala', '1.5') */
+  --escala: 1;
+  --rotacion: 0deg;
+  padding: 1rem;
+  border-radius: 4px;
+  background-color: var(--text-color);
+  color: var(--background-color); /* contraste: fondo claro, texto oscuro */
+  transform: scale(var(--escala)) rotate(var(--rotacion));
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.box:hover {
+  --escala: 1.05;
+  --rotacion: 2deg;
+}
+
+/* --------------------------------------------------------------------------
+   Footer (fila 4 del grid del body)
+   Columnas automáticas: derechos y contacto lado a lado, apilados en móvil.
+   -------------------------------------------------------------------------- */
+.footer {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
+  gap: 1rem;
+  width: 100%;
+  max-width: var(--max-width);
+  margin: 2rem auto 0;
+  padding: 1rem var(--gutter);
+  border-top: 1px solid var(--border-color);
+}
+
+/* --------------------------------------------------------------------------
+   Botones
+   -------------------------------------------------------------------------- */
+/* transition: [propiedad] [duración] [timing-function] [delay]
+   Dos propiedades con duraciones distintas en la misma declaración. */
+.btn {
+  padding: .5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-base) ease,
+    transform var(--duration-fast) ease;
+}
+
+/* :hover -> se eleva; :active -> vuelve a su sitio mientras se pulsa */
+.btn:hover {
+  transform: translateY(-3px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+/* Foco visible solo con teclado (focus-visible), no al hacer clic */
+.btn:focus-visible {
+  outline: 2px solid var(--white-color);
+  outline-offset: 2px;
+}
+
+.btn--primary {
+  background-color: var(--primary-color);
+}
+
+.btn--secondary {
+  background-color: var(--secondary-color);
+}
+
+.btn--accent {
+  background-color: var(--accent-color);
+  color: var(--text-color);
+}
+
+.btn--accent:hover {
+  background-color: var(--primary-color);
+}
+
+/* Pulso: llama la atención sobre UNA acción principal. Si todo pulsa, nada destaca. */
+.btn--pulse {
+  animation: pulso 2s infinite;
+}
+
+/* ==========================================================================
+   Animaciones (clase 8)
+   Criterio: solo animamos transform, opacity, color, filter y box-shadow.
+   Nunca width, height, top o left (provocan reflow en cada frame).
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   @keyframes: dos pasos. 1) declarar la secuencia, 2) aplicarla con animation.
+   Error común: declarar el @keyframes y olvidar la propiedad animation.
+   -------------------------------------------------------------------------- */
+
+/* Entrada: aparece subiendo. from/to equivale a 0%/100%. */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Pulso: el halo (box-shadow con spread) crece y se desvanece */
+@keyframes pulso {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(79, 140, 255, 0.7);
+  }
+  70% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 10px rgba(79, 140, 255, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(79, 140, 255, 0);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Tarjeta 3D (Eventos destacados)
+   Tres piezas: perspective en el escenario (padre), transform-style: preserve-3d
+   en el interior que gira, y backface-visibility: hidden en cada cara.
+   -------------------------------------------------------------------------- */
+.flip-card {
+  perspective: 1000px;      /* profundidad: menor valor = efecto más exagerado */
+  aspect-ratio: 3 / 4;
+  margin-top: 1rem;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.flip-card:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 4px;
+}
+
+.flip-card-inner {
+  position: relative;
+  height: 100%;
+  transform-style: preserve-3d;   /* los hijos conservan su posición en 3D */
+  transition: transform .8s var(--ease-in-out);
+  /* will-change reserva memoria en GPU: úsalo solo en elementos concretos
+     que sabes que se animarán, nunca en un selector global */
+  will-change: transform;
+}
+
+/* El giro lo dispara el hover del escenario o el foco (teclado / touch) */
+.flip-card:hover .flip-card-inner,
+.flip-card:focus-within .flip-card-inner {
+  transform: rotateY(180deg);
+}
+
+.flip-card-face {
+  position: absolute;
+  inset: 0;                       /* top/right/bottom/left: 0 */
+  display: grid;
+  align-content: end;
+  gap: .5rem;
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+  backface-visibility: hidden;    /* oculta la cara cuando está de espaldas */
+}
+
+.flip-card-front {
+  background-color: var(--secondary-color);
+}
+
+.flip-card-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: .6;
+}
+
+.flip-card-front h3 {
+  position: relative;             /* por encima de la imagen */
+}
+
+/* La cara trasera nace ya girada 180°; al girar el interior queda de frente */
+.flip-card-back {
+  background-color: var(--secondary-color);
+  transform: rotateY(180deg);
+}
+
+/* --------------------------------------------------------------------------
+   Reveal al hacer scroll
+   CSS define los dos estados; script.js solo añade la clase .is-visible con
+   Intersection Observer. El prefijo .js (puesto por el script) garantiza que
+   si JavaScript no carga, el contenido se ve igual.
+   -------------------------------------------------------------------------- */
+.js .reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition:
+    opacity .6s ease,
+    transform .6s var(--ease-out);
+}
+
+.js .reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* --------------------------------------------------------------------------
+   Calculadora
+   -------------------------------------------------------------------------- */
+
+.calculadora {
+  width: 300px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding: 10px;
+  background-color: #f8f9fa;
+}
+#pantalla {
+  background-color: #fff;
+  border: 1px solid #ddd;
+  padding: 10px;
+  margin-bottom: 10px;
+  text-align: right;
+  font-size: 24px;
+  height: 40px;
+}
+.botones {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+}
+.button-calc {
+  padding: 15px;
+  font-size: 18px;
+  cursor: pointer;
+}
+.button-calc:hover {
+  background-color: #eaeaea;
+}
+
+#limpiar {
+  background-color: #ff4444;
+  color: white;
+  grid-column: 1 / -1;
+}
+
+.estado {
+  grid-column: 1 / -1;            /* ocupa todo el ancho del grid de tarjetas */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space);
+  flex-wrap: wrap;
+  padding: calc(var(--space) * 2);
+  border: 1px dashed var(--border-color);
+  border-radius: 4px;
+  text-align: center;
+}
+
+.estado--cargando::before {
+  content: '';
+  width: 1.2rem;
+  height: 1.2rem;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: girar 800ms linear infinite;
+}
+
+.estado--error {
+  border-color: var(--error-color);
+  color: var(--error-color);
+}
+
+@keyframes girar {
+  to { transform: rotate(360deg); }
+}
+
+
+
+
+/* ==========================================================================
+   Taller 2: filtro, administración, detalle y carrito
+   ========================================================================== */
+
+/* Filtro por categoría: aria-pressed marca el botón activo (sin clases extra) */
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin-bottom: 1rem;
+}
+
+.filtro {
+  padding: .375rem 1rem;
+  font: inherit;
+  color: var(--text-color);
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.filtro[aria-pressed="true"] {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+}
+
+.filtro:disabled {
+  cursor: progress;
+  opacity: .6;
+}
+
+/* Botones deshabilitados durante una petición: se ven y se sienten inactivos */
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+  transform: none;
+}
+
+.btn--danger {
+  background-color: transparent;
+  color: var(--error-color);
+  border: 1px solid var(--error-color);
+}
+
+.btn--mini {
+  padding: 0 .5rem;
+  font: inherit;
+  color: var(--text-color);
+  background-color: var(--border-color);
+}
+
+/* La tarjeta entera abre el detalle */
+.card {
+  cursor: pointer;
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+.card:nth-child(n + 7) { animation-delay: .7s; }
+
+.card-admin {
+  display: flex;
+  gap: .5rem;
+  padding: 0 1rem 1rem;
+}
+
+.card-admin .btn {
+  flex: 1;
+  font: inherit;
+  font-size: .875rem;
+}
+
+.card-admin .btn--secondary {
+  color: var(--text-color);
+}
+
+.estado--vacio {
+  color: #9aa1b5;
+}
+
+/* Formulario de administración */
+#admin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;  /* igual que #contact */
+}
+
+form select {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: .625rem .875rem;
+  font: inherit;
+  color: var(--text-color);
+  background-color: #161a24;
+  border: 2px solid var(--border-color);
+  border-radius: 6px;
+  color-scheme: dark;
+}
+
+.form-field--check {
+  flex-direction: row;
+  align-items: center;
+}
+
+.form-field--check input {
+  width: auto;
+  min-height: auto;
+}
+
+.form-botones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+.form-mensaje:empty {
+  display: none;
+}
+
+.form-mensaje--ok {
+  color: var(--success-color);
+}
+
+.form-mensaje--error {
+  color: var(--error-color);
+}
+
+/* El aside es sticky: si el carrito crece, hace scroll propio en vez de cortarse */
+.aside--info {
+  max-height: calc(100vh - var(--header-offset));
+  overflow-y: auto;
+}
+
+@media (max-width: 900px) {
+  .aside--info {
+    max-height: none;
+  }
+}
+
+/* Carrito (aside derecho) */
+.carrito {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+.carrito-lista {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+
+.carrito-item {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  padding-bottom: .75rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.carrito-controles {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.carrito-subtotal {
+  margin-left: auto;
+  font-weight: bold;
+}
+
+.carrito-vacio {
+  color: #9aa1b5;
+}
+
+.carrito-form {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.carrito-form input {
+  min-height: 2.5rem;
+}
+
+/* Modal de detalle: <dialog> trae el foco atrapado y Esc para cerrar */
+.detalle {
+  width: min(32rem, calc(100% - 2rem));
+  margin: auto;
+  padding: 1.5rem;
+  color: var(--text-color);
+  background-color: var(--background-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.detalle::backdrop {
+  background: rgba(0, 0, 0, .7);
+}
+
+.detalle-contenido {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.detalle-imagen {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.detalle-cerrar {
+  float: right;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--text-color);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* Aviso flotante: entra desde abajo con transform (sin reflow) */
+.aviso {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  z-index: 10;
+  max-width: calc(100% - 2rem);
+  padding: .75rem 1.25rem;
+  border-radius: 6px;
+  background-color: #161a24;
+  border: 1px solid var(--success-color);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 1rem);
+  transition:
+    opacity var(--duration-base) ease,
+    transform var(--duration-base) var(--ease-out);
+}
+
+.aviso--error {
+  border-color: var(--error-color);
+}
+
+.aviso.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* --------------------------------------------------------------------------
+   Accesibilidad: movimiento reducido
+   Usuarios con trastornos vestibulares activan esta preferencia en el SO.
+   Casi eliminamos duraciones (0.01ms en vez de 0 para que los eventos
+   transitionend/animationend sigan disparándose) y mostramos todo el contenido.
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+
+  .js .reveal {
+    opacity: 1;
+    transform: none;
+  }
+}
