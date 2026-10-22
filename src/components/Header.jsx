@@ -6,7 +6,9 @@ function Header() {
         <ul className="nav-list">
           <li><a href="#home">Inicio</a></li>
           <li><a href="#events">Eventos</a></li>
+          <li><a href="#admin">Agregar evento</a></li>
           <li><a href="#aboutus">Acerca de nosotros</a></li>
+          <li><a href="#contact">Contacto</a></li>
         </ul>
       </nav>
     </header>

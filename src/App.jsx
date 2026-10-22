@@ -1,13 +1,25 @@
+import { useState } from 'react'
 import Header from './components/Header'
 import Hero from './components/Hero'
 import EventoDestacado from './components/EventoDestacado'
 import ListaEventos from './components/ListaEventos'
 import AcercaDe from './components/AcercaDe'
+import FormularioEvento from './components/FormularioEvento'
+import FormularioContacto from './components/FormularioContacto'
 import Footer from './components/Footer'
 // Datos fake: Vite convierte el .json en un arreglo de JS al importarlo
-import eventos from './data/eventos.json'
+import eventosIniciales from './data/eventos.json'
 
 function App() {
+  // Los eventos ahora son ESTADO: al agregar uno, React vuelve a pintar la lista
+  const [eventos, setEventos] = useState(eventosIniciales)
+
+  // El formulario entrega el evento ya "guardado" por la API (con id).
+  // Arreglo NUEVO con spread: nunca eventos.push(...)
+  const agregarEvento = (evento) => {
+    setEventos((anteriores) => [...anteriores, evento])
+  }
+
   // El primer evento marcado como destacado (o undefined si no hay ninguno)
   const destacado = eventos.find((evento) => evento.destacado)
 
@@ -28,7 +40,15 @@ function App() {
             <h2>Proximos eventos</h2>
             <ListaEventos eventos={eventos} />
           </section>
+          <section id="admin">
+            <h2>Agregar evento</h2>
+            <FormularioEvento onCrear={agregarEvento} />
+          </section>
           <AcercaDe />
+          <section id="contact">
+            <h2>Contacto</h2>
+            <FormularioContacto />
+          </section>
         </main>
 
         <aside className="aside aside--info">

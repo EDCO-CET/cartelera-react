@@ -1167,3 +1167,21 @@ form select {
     transform: none;
   }
 }
+
+/* ==========================================================================
+   React - formularios: error por campo
+   ========================================================================== */
+.form-error {
+  color: var(--error-color);
+  font-size: .875rem;
+}
+
+/* aria-invalid lo pone React cuando el campo tiene error: el CSS lo aprovecha */
+form [aria-invalid="true"] {
+  border-color: var(--error-color);
+}
+
+/* Mientras se envía, el fieldset está disabled: que se note */
+fieldset:disabled {
+  opacity: .6;
+}
