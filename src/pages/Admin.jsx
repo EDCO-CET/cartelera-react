@@ -24,7 +24,7 @@ function Admin({ onCrear }) {
       <div className="layout">
         <main className="main">
           <section id="admin">
-            <FormularioEvento onCrear={crearYVolver} />
+            <FormularioEvento onGuardado={crearYVolver} />
           </section>
         </main>
       </div>

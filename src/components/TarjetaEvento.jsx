@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import { formatearPrecio, textoCupos } from '../utils/formato'
 
 /*
@@ -7,15 +8,19 @@ import { formatearPrecio, textoCupos } from '../utils/formato'
   Props: un objeto evento { id, titulo, descripcion, precio, cupos, imagen, alt }
 */
 function TarjetaEvento({ evento }) {
+  const urlDetalle = `/eventos/${evento.id}`   // ruta dinámica: /eventos/1, /eventos/2...
+
   return (
     <article className="card">
-      <div className="card-media">
-        <img className="card-image" src={evento.imagen} alt={evento.alt} />
+      {/* La imagen también lleva al detalle. tabIndex -1 + aria-hidden: el teclado
+          y el lector de pantalla usan solo el enlace del título (no dos iguales) */}
+      <Link to={urlDetalle} className="card-media" tabIndex={-1} aria-hidden="true">
+        <img className="card-image" src={evento.imagen} alt="" />
         <span className="card-tag">Ver detalles</span>
-      </div>
+      </Link>
 
       <div className="card-body">
-        <h3>{evento.titulo}</h3>
+        <h3><Link to={urlDetalle}>{evento.titulo}</Link></h3>
         <p>{evento.descripcion}</p>
         <small className="card-stock">{textoCupos(evento.cupos)}</small>
       </div>

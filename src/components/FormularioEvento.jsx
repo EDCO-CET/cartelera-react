@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { CATEGORIAS } from '../constants'
-import { crearEvento } from '../services/api'
+import { actualizarEvento, crearEvento } from '../services/api'
 import { sinErrores } from '../utils/validaciones'
 
 // Estado inicial: TODOS los campos definidos ('' o false) para que los inputs
@@ -17,6 +17,15 @@ const VACIO = {
   descripcion: '',
   destacado: false,
 }
+
+// Modo edición: el evento trae números (precio, cupos), pero los inputs
+// trabajan con texto. Lo convertimos para que el formulario siga controlado.
+const aFormulario = (evento) => ({
+  ...VACIO,
+  ...evento,
+  precio: String(evento.precio),
+  cupos: String(evento.cupos),
+})
 
 /*
   Validación pura: recibe los datos y devuelve { campo: 'mensaje' }.
@@ -58,11 +67,17 @@ function validateForm(formData) {
 }
 
 /*
-  Formulario CONTROLADO para agregar un evento.
-  Props: onCrear(evento) -> el padre decide qué hacer con el evento creado.
+  Formulario CONTROLADO para agregar O editar un evento.
+  Props:
+    evento     -> opcional. Si llega, el formulario arranca con sus datos (modo edición)
+    onGuardado(evento) -> el padre decide qué hacer con el evento ya guardado por la API
+  OJO: useState solo usa el valor inicial en el PRIMER render. Si la página puede
+  cambiar de evento sin desmontar el formulario, el padre debe usar key={evento.id}.
 */
-function FormularioEvento({ onCrear }) {
-  const [formData, setFormData] = useState(VACIO)
+function FormularioEvento({ evento = null, onGuardado }) {
+  const editando = evento !== null
+  const inicial = editando ? aFormulario(evento) : VACIO
+  const [formData, setFormData] = useState(inicial)
   const [errors, setErrors] = useState({})
   const [touched, setTouched] = useState({})          // campos que el usuario ya visitó
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -111,22 +126,26 @@ function FormularioEvento({ onCrear }) {
     setMensaje(null)
     try {
       // Convertimos los textos a los tipos que espera la API
-      const creado = await crearEvento({
+      const datos = {
         ...formData,
         titulo: formData.titulo.trim(),
         descripcion: formData.descripcion.trim(),
         precio: Number(formData.precio),
         cupos: Number(formData.cupos),
-      })
-      onCrear(creado)
-      setFormData(VACIO)     // controlado: limpiar el estado limpia los inputs
-      setTouched({})
-      setErrors({})
-      setMensaje({ texto: `"${creado.titulo}" se publicó en la cartelera.`, tipo: 'ok' })
+      }
+      // Mismo formulario, dos peticiones: POST para crear, PUT para editar
+      const guardado = editando ? await actualizarEvento(datos) : await crearEvento(datos)
+      onGuardado(guardado)
+      if (!editando) {
+        setFormData(VACIO)   // controlado: limpiar el estado limpia los inputs
+        setTouched({})
+        setErrors({})
+      }
+      setMensaje({ texto: `"${guardado.titulo}" se guardó en la cartelera.`, tipo: 'ok' })
     } catch (error) {
-      console.error('Error al crear el evento:', error)
+      console.error('Error al guardar el evento:', error)
       // NO limpiamos el formulario: el usuario puede reintentar sin volver a escribir
-      setMensaje({ texto: 'No se pudo publicar el evento. Intenta de nuevo.', tipo: 'error' })
+      setMensaje({ texto: 'No se pudo guardar el evento. Intenta de nuevo.', tipo: 'error' })
     } finally {
       setIsSubmitting(false)
     }
@@ -152,7 +171,7 @@ function FormularioEvento({ onCrear }) {
     <form className="form" onSubmit={handleSubmit} noValidate>
       {/* fieldset disabled deshabilita TODOS los campos mientras se envía */}
       <fieldset className="form-group" disabled={isSubmitting}>
-        <legend>Nuevo evento</legend>
+        <legend>{editando ? 'Editar evento' : 'Nuevo evento'}</legend>
 
         <div className="form-field">
           <label htmlFor="ev-titulo">Título</label>
@@ -239,17 +258,19 @@ function FormularioEvento({ onCrear }) {
           type="button"
           disabled={isSubmitting}
           onClick={() => {
-            setFormData(VACIO)
+            setFormData(inicial)   // al crear: vacío · al editar: los datos originales
             setErrors({})
             setTouched({})
             setMensaje(null)
           }}
         >
-          Limpiar
+          {editando ? 'Descartar cambios' : 'Limpiar'}
         </button>
         {/* disabled evita el doble envío; el texto avisa que algo está pasando */}
         <button className="btn btn--accent form-submit" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Publicando...' : 'Agregar evento'}
+          {editando
+            ? (isSubmitting ? 'Guardando...' : 'Guardar cambios')
+            : (isSubmitting ? 'Publicando...' : 'Agregar evento')}
         </button>
       </div>
     </form>

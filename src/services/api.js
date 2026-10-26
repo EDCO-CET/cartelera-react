@@ -27,6 +27,11 @@ export function crearEvento(evento) {
   return simularPeticion({ ...evento, id: Date.now() }, debeFallar(evento.titulo))
 }
 
+// "PUT /eventos/:id": devuelve el evento tal como quedó guardado
+export function actualizarEvento(evento) {
+  return simularPeticion({ ...evento }, debeFallar(evento.titulo))
+}
+
 // "POST /contacto": devuelve un número de radicado
 export function enviarContacto(mensaje) {
   return simularPeticion({ radicado: Math.floor(Math.random() * 90000) + 10000 }, debeFallar(mensaje.email))
