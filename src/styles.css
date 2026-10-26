@@ -668,6 +668,8 @@ form textarea:focus {
 
 .btn--secondary {
   background-color: var(--secondary-color);
+  /* React: sin color, el texto quedaba negro sobre azul oscuro y el botón parecía deshabilitado */
+  color: var(--text-color);
 }
 
 .btn--accent {

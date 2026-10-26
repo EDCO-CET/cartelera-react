@@ -22,9 +22,16 @@ function EditarEvento({ eventos, onActualizar }) {
     )
   }
 
+  /*
+    replace: true REEMPLAZA /editar en el historial en vez de agregar una entrada.
+    Sin él, el historial queda detalle -> editar -> detalle, y "atrás" desde el
+    detalle vuelve a abrir el formulario. (El enlace "Editar" también usa replace.)
+  */
+  const volverAlDetalle = () => navigate(`/eventos/${evento.id}`, { replace: true })
+
   const guardarYVer = (actualizado) => {
-    onActualizar(actualizado)               // App reemplaza el evento en la lista
-    navigate(`/eventos/${actualizado.id}`)  // volvemos al detalle con los datos nuevos
+    onActualizar(actualizado)   // App reemplaza el evento en la lista
+    volverAlDetalle()           // volvemos al detalle con los datos nuevos
   }
 
   return (
@@ -35,7 +42,12 @@ function EditarEvento({ eventos, onActualizar }) {
           <section id="admin">
             {/* key: si la URL pasa a otro evento sin salir de esta página, React
                 crea un formulario NUEVO (useState vuelve a leer el valor inicial) */}
-            <FormularioEvento key={evento.id} evento={evento} onGuardado={guardarYVer} />
+            <FormularioEvento
+              key={evento.id}
+              evento={evento}
+              onGuardado={guardarYVer}
+              onCancelar={volverAlDetalle}
+            />
           </section>
         </main>
       </div>

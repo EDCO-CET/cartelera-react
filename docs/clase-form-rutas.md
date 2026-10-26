@@ -42,7 +42,7 @@ npm run dev
 | `src/components/TarjetaEvento.jsx` | El título y la imagen son `<Link>` al detalle |
 | `src/components/FormularioEvento.jsx` | Prop opcional `evento` (modo edición); `onCrear` se renombra a `onGuardado` |
 | `src/services/api.js` | Nueva función `actualizarEvento()` ("PUT" simulado) |
-| `src/styles.css` | `.nav-list a.active`, `.header-logo`, enlaces de la tarjeta y página de detalle |
+| `src/styles.css` | `.nav-list a.active`, `.header-logo`, enlaces de la tarjeta, página de detalle y color del texto de `.btn--secondary` |
 
 Convención: `components/` son piezas reutilizables; `pages/` tiene **un componente por ruta**.
 
@@ -220,7 +220,7 @@ const urlDetalle = `/eventos/${evento.id}`
 - Si el id no existe (`/eventos/99`), la página muestra "Evento no encontrado" con su propio `Hero`. Es una 404 **dentro** de una ruta que sí existe.
 - El detalle busca en el **mismo estado** de `App`: un evento recién creado en `/admin` ya tiene detalle (su id es el `Date.now()` que le dio la API simulada).
 - La tarjeta tiene dos enlaces al mismo lugar (imagen y título). La imagen lleva `tabIndex={-1}` y `aria-hidden`, para que el teclado y el lector de pantalla encuentren **uno** solo.
-- "Volver" usa `navigate(-1)`: equivale al botón atrás del navegador.
+- "Volver a la cartelera" es un `<Link to="/">` con destino **fijo**. Una primera versión usaba `navigate(-1)` (el botón atrás), y fallaba después de editar: "atrás" llevaba al formulario, no a la cartelera. Moraleja: `navigate(-1)` depende de cómo llegó el usuario. Si el destino es conocido, mejor un enlace.
 
 ## Paso 10: editar con el mismo formulario
 
@@ -240,17 +240,24 @@ const actualizarEvento = (actualizado) => {
 
 ```jsx
 // pages/EditarEvento.jsx
+const volverAlDetalle = () => navigate(`/eventos/${evento.id}`, { replace: true })
+
 const guardarYVer = (actualizado) => {
   onActualizar(actualizado)
-  navigate(`/eventos/${actualizado.id}`)
+  volverAlDetalle()
 }
 
-<FormularioEvento key={evento.id} evento={evento} onGuardado={guardarYVer} />
+<FormularioEvento
+  key={evento.id}
+  evento={evento}
+  onGuardado={guardarYVer}
+  onCancelar={volverAlDetalle}
+/>
 ```
 
 ```jsx
 // FormularioEvento.jsx: el modo depende de si llega la prop evento
-function FormularioEvento({ evento = null, onGuardado }) {
+function FormularioEvento({ evento = null, onGuardado, onCancelar }) {
   const editando = evento !== null
   const inicial = editando ? aFormulario(evento) : VACIO
   const [formData, setFormData] = useState(inicial)
@@ -260,10 +267,11 @@ function FormularioEvento({ evento = null, onGuardado }) {
 
 **Qué explicar:**
 
-- **Un formulario, dos usos.** Lo único que cambia es el valor inicial, la petición (POST o PUT) y los textos: "Editar evento", "Guardar cambios", "Descartar cambios". La validación y la accesibilidad son las mismas.
+- **Un formulario, dos usos.** Lo único que cambia es el valor inicial, la petición (POST o PUT) y los textos ("Editar evento", "Guardar cambios"). La validación y la accesibilidad son las mismas.
+- **Cancelar** sale sin guardar y vuelve al detalle. Si `onCancelar` no llega (en `/admin`), el mismo botón dice "Limpiar" y vacía el formulario. Una primera versión tenía "Descartar cambios" (restaurar los datos originales sin salir). Al probarlo en clase no se entendía: si no se había cambiado nada, no pasaba nada visible, y el botón tenía texto negro sobre azul oscuro, así que parecía deshabilitado. Al editar, lo esperado es **salir** sin guardar.
+- **Historial con `replace`:** el enlace "Editar evento" lleva `replace`, y al guardar o cancelar se navega con `{ replace: true }`. Así el formulario **nunca queda en el historial**: el botón atrás del navegador, desde el detalle, vuelve a la cartelera y no al formulario. Demo: quitar los dos `replace`, editar, guardar y pulsar atrás.
 - `aFormulario` convierte `precio` y `cupos` a **texto**, porque los inputs trabajan con texto. Al enviar, el formulario los vuelve a convertir con `Number(...)`, igual que al crear.
 - `useState(inicial)` solo usa el valor inicial en el **primer render**. Por eso `key={evento.id}`: si la URL cambia a otro evento sin salir de la página, React crea un formulario nuevo en vez de mostrar los datos del anterior.
-- "Descartar cambios" vuelve a `inicial`, es decir, a los datos originales del evento, no a un formulario vacío.
 - Inmutabilidad: `map` devuelve un **arreglo nuevo** donde solo cambia el evento editado. Con `eventos[i] = actualizado` React no se entera del cambio.
 - Al editar, el destacado del aside y la tarjeta de Inicio se actualizan solos, porque leen del mismo estado.
 - **Pregunta abierta para la clase:** "¿qué impide que cualquier visitante edite un evento?" Hoy, nada. Aquí se conecta con autenticación y rutas protegidas (clase 21). Además, la seguridad real va en el servidor: esconder el botón no basta.
@@ -275,10 +283,11 @@ function FormularioEvento({ evento = null, onGuardado }) {
 `npm run lint` y `npm run build` pasan sin errores. En Chrome se probó:
 
 - Navegación sin recarga, enlace activo, crear evento y volver a `/`, error simulado, 404 y abrir `/admin` directamente.
-- Detalle desde la tarjeta, "Volver", `/eventos/99`, formulario de edición con los datos cargados, "Descartar cambios", error simulado al editar, guardar y ver el cambio en el detalle, en la tarjeta y en el destacado.
+- Detalle desde la tarjeta, "Volver a la cartelera", `/eventos/99`, formulario de edición con los datos cargados, "Cancelar" (sin guardar), error simulado al editar, guardar y ver el cambio en el detalle, en la tarjeta y en el destacado.
 - Editar un evento recién creado.
+- Botón atrás del navegador después de guardar y después de cancelar: no vuelve al formulario.
 
-Los botones atrás y adelante del navegador no se probaron: incluirlos en la revisión antes de clase.
+El botón **adelante** del navegador no se probó.
 
 - [ ] En `/`, "Inicio" aparece subrayado; en `/admin`, "Agregar evento".
 - [ ] Al pasar de Inicio a Agregar evento, la página **no se recarga** (en DevTools → Network no hay una nueva petición del documento).
@@ -291,7 +300,9 @@ Los botones atrás y adelante del navegador no se probaron: incluirlos en la rev
 - [ ] `/eventos/99` muestra "Evento no encontrado".
 - [ ] "Editar evento" abre `/eventos/1/editar` con el formulario lleno, incluida la casilla de destacado.
 - [ ] Cambiar el título a "Jazz error" y guardar: el botón dice "Guardando...", sale el mensaje rojo y la URL no cambia.
-- [ ] "Descartar cambios" devuelve los datos originales.
+- [ ] "Cancelar" vuelve al detalle sin guardar lo escrito.
+- [ ] Después de guardar, el botón atrás del navegador lleva a la cartelera, no al formulario.
+- [ ] "Volver a la cartelera" lleva a `/`, vengas de donde vengas.
 - [ ] Cambiar el título y el precio, y guardar: la app vuelve a `/eventos/1` con los datos nuevos, y en Inicio cambian la tarjeta y el destacado.
 
 **Datos válidos para la demo:** título `Cine al parque`, categoría Música, fecha `Domingo 1 de noviembre, 5 pm`, lugar `Parque de la 93`, precio `0`, cupos `20`, imagen `/img/festival.jpg`, alt `Pantalla gigante en un parque`, descripción `Proyección de clásicos al aire libre`.
@@ -311,6 +322,8 @@ Los botones atrás y adelante del navegador no se probaron: incluirlos en la rev
 | El formulario de edición sale vacío o con datos de otro evento | `useState` solo lee el valor inicial al montar | `key={evento.id}` en `FormularioEvento` |
 | `A component is changing an uncontrolled input to be controlled` al editar | Al evento le falta un campo del formulario | `aFormulario` parte de `{ ...VACIO, ...evento }` |
 | Se edita pero la lista no cambia | Se mutó el arreglo (`eventos[i] = ...`) | `map` que devuelve un arreglo nuevo |
+| Después de guardar, "atrás" vuelve a abrir el formulario | La edición quedó en el historial | `replace` en el enlace a `/editar` y `{ replace: true }` al salir |
+| Un botón de "Volver" lleva a lugares distintos | `navigate(-1)` depende del historial | `<Link to="...">` con destino fijo |
 
 ## Reto
 

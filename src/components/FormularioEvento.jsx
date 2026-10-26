@@ -71,10 +71,12 @@ function validateForm(formData) {
   Props:
     evento     -> opcional. Si llega, el formulario arranca con sus datos (modo edición)
     onGuardado(evento) -> el padre decide qué hacer con el evento ya guardado por la API
+    onCancelar -> opcional. Si llega, el botón secundario dice "Cancelar" y lo llama
+                  (al editar: salir sin guardar). Si no, el botón limpia el formulario.
   OJO: useState solo usa el valor inicial en el PRIMER render. Si la página puede
   cambiar de evento sin desmontar el formulario, el padre debe usar key={evento.id}.
 */
-function FormularioEvento({ evento = null, onGuardado }) {
+function FormularioEvento({ evento = null, onGuardado, onCancelar }) {
   const editando = evento !== null
   const inicial = editando ? aFormulario(evento) : VACIO
   const [formData, setFormData] = useState(inicial)
@@ -257,14 +259,14 @@ function FormularioEvento({ evento = null, onGuardado }) {
           className="btn btn--secondary"
           type="button"
           disabled={isSubmitting}
-          onClick={() => {
-            setFormData(inicial)   // al crear: vacío · al editar: los datos originales
+          onClick={onCancelar ?? (() => {
+            setFormData(inicial)
             setErrors({})
             setTouched({})
             setMensaje(null)
-          }}
+          })}
         >
-          {editando ? 'Descartar cambios' : 'Limpiar'}
+          {onCancelar ? 'Cancelar' : 'Limpiar'}
         </button>
         {/* disabled evita el doble envío; el texto avisa que algo está pasando */}
         <button className="btn btn--accent form-submit" type="submit" disabled={isSubmitting}>
