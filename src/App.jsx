@@ -1,17 +1,20 @@
 import { useState } from 'react'
-import Header from './components/Header'
-import Hero from './components/Hero'
-import EventoDestacado from './components/EventoDestacado'
-import ListaEventos from './components/ListaEventos'
-import AcercaDe from './components/AcercaDe'
-import FormularioEvento from './components/FormularioEvento'
-import FormularioContacto from './components/FormularioContacto'
-import Footer from './components/Footer'
+import { Route, Routes } from 'react-router'
+import Layout from './components/Layout'
+import Inicio from './pages/Inicio'
+import Admin from './pages/Admin'
+import NoEncontrado from './pages/NoEncontrado'
 // Datos fake: Vite convierte el .json en un arreglo de JS al importarlo
 import eventosIniciales from './data/eventos.json'
 
+/*
+  App ahora tiene dos trabajos:
+  1. Guardar el estado que comparten las rutas: /admin agrega eventos y / los muestra.
+     Si el estado viviera dentro de una página, se perdería al cambiar de ruta.
+  2. Declarar qué componente se pinta en cada URL (<Routes>).
+*/
 function App() {
-  // Los eventos ahora son ESTADO: al agregar uno, React vuelve a pintar la lista
+  // Los eventos son ESTADO: al agregar uno, React vuelve a pintar la lista
   const [eventos, setEventos] = useState(eventosIniciales)
 
   // El formulario entrega el evento ya "guardado" por la API (con id).
@@ -20,47 +23,17 @@ function App() {
     setEventos((anteriores) => [...anteriores, evento])
   }
 
-  // El primer evento marcado como destacado (o undefined si no hay ninguno)
-  const destacado = eventos.find((evento) => evento.destacado)
-
   return (
-    // Fragmento <>...</>: agrupa sin agregar un div extra al DOM
-    <>
-      <Header />
-      <Hero />
-      <div className="layout">
-        <aside className="aside aside--featured">
-          <h2>Eventos destacados</h2>
-          {/* Renderizado condicional: si no hay destacado no se pinta nada */}
-          {destacado && <EventoDestacado evento={destacado} />}
-        </aside>
-
-        <main id="home" className="main">
-          <section id="events">
-            <h2>Proximos eventos</h2>
-            <ListaEventos eventos={eventos} />
-          </section>
-          <section id="admin">
-            <h2>Agregar evento</h2>
-            <FormularioEvento onCrear={agregarEvento} />
-          </section>
-          <AcercaDe />
-          <section id="contact">
-            <h2>Contacto</h2>
-            <FormularioContacto />
-          </section>
-        </main>
-
-        <aside className="aside aside--info">
-          <h2>Info util</h2>
-          <section>
-            <h3>Horarios</h3>
-            <p>Lunes a viernes de 7pm a 9pm</p>
-          </section>
-        </aside>
-      </div>
-      <Footer />
-    </>
+    <Routes>
+      {/* Ruta padre SIN path: solo aporta el layout (header + footer) */}
+      <Route element={<Layout />}>
+        {/* index = la ruta "/" dentro del padre */}
+        <Route index element={<Inicio eventos={eventos} />} />
+        <Route path="admin" element={<Admin onCrear={agregarEvento} />} />
+        {/* Comodín: cualquier URL que no coincida con las anteriores */}
+        <Route path="*" element={<NoEncontrado />} />
+      </Route>
+    </Routes>
   )
 }
 
