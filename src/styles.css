@@ -1235,3 +1235,32 @@ fieldset:disabled {
   align-items: center;
   gap: 1rem;
 }
+
+/* ==========================================================================
+   React - sesión (clase 21): saludo y botón Salir en el menú
+   ========================================================================== */
+.nav-list {
+  align-items: center;
+}
+
+.nav-usuario {
+  color: var(--accent-color);
+  font-weight: 700;
+}
+
+/* "Salir" es una acción, no una navegación: <button>, pero con el look de los enlaces */
+.nav-salir {
+  padding: 0 0 .25rem;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.nav-salir:hover,
+.nav-salir:focus-visible {
+  text-decoration: underline;
+  text-decoration-color: var(--accent-color);
+  text-underline-offset: .35rem;
+}

@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { Route, Routes } from 'react-router'
 import Layout from './components/Layout'
+import RutaProtegida from './components/RutaProtegida'
 import Inicio from './pages/Inicio'
 import Admin from './pages/Admin'
 import DetalleEvento from './pages/DetalleEvento'
 import EditarEvento from './pages/EditarEvento'
 import NoEncontrado from './pages/NoEncontrado'
+import Login from './pages/Login'
 // Datos fake: Vite convierte el .json en un arreglo de JS al importarlo
 import eventosIniciales from './data/eventos.json'
 
@@ -39,13 +41,20 @@ function App() {
       <Route element={<Layout />}>
         {/* index = la ruta "/" dentro del padre */}
         <Route index element={<Inicio eventos={eventos} />} />
-        <Route path="admin" element={<Admin onCrear={agregarEvento} />} />
+        <Route path="login" element={<Login />} />
         {/* :id es dinámico: /eventos/1, /eventos/2... */}
         <Route path="eventos/:id" element={<DetalleEvento eventos={eventos} />} />
-        <Route
-          path="eventos/:id/editar"
-          element={<EditarEvento eventos={eventos} onActualizar={actualizarEvento} />}
-        />
+
+        {/* Otra ruta padre SIN path, anidada en Layout: no cambia la URL, solo decide
+            si sus hijas se muestran. Todo lo de adentro queda solo para admin. */}
+        <Route element={<RutaProtegida rol="admin" />}>
+          <Route path="admin" element={<Admin onCrear={agregarEvento} />} />
+          <Route
+            path="eventos/:id/editar"
+            element={<EditarEvento eventos={eventos} onActualizar={actualizarEvento} />}
+          />
+        </Route>
+
         {/* Comodín: cualquier URL que no coincida con las anteriores */}
         <Route path="*" element={<NoEncontrado />} />
       </Route>

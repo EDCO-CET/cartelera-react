@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router'
 import Hero from '../components/Hero'
 import { formatearPrecio, textoCupos } from '../utils/formato'
+import { useAuth } from '../hooks/useAuth'
 
 /*
   Página "/eventos/:id". useParams() lee la parte dinámica de la URL.
@@ -9,6 +10,7 @@ import { formatearPrecio, textoCupos } from '../utils/formato'
 */
 function DetalleEvento({ eventos }) {
   const { id } = useParams()
+  const { hasRole } = useAuth()
   const evento = eventos.find((e) => String(e.id) === id)
 
   if (!evento) {
@@ -36,14 +38,16 @@ function DetalleEvento({ eventos }) {
             <p><strong>Disponibilidad:</strong> {textoCupos(evento.cupos)}</p>
             <div className="detalle-acciones">
               <span className="card-price">{formatearPrecio(evento.precio)}</span>
-              {/* Por ahora cualquiera puede editar. Cuando haya login (clase 21),
-                  este enlace y la ruta /editar quedarán solo para administradores.
+              {/* Clase 21: solo el admin ve el enlace (la ruta /editar además está
+                  protegida en App.jsx; ocultar el botón NO basta por sí solo).
                   replace: el formulario REEMPLAZA al detalle en el historial; al
                   guardar o cancelar, el detalle lo vuelve a reemplazar. Así "atrás"
                   nunca regresa al formulario ni repite el detalle */}
-              <Link className="btn btn--accent" to={`/eventos/${evento.id}/editar`} replace>
-                Editar evento
-              </Link>
+              {hasRole('admin') && (
+                <Link className="btn btn--accent" to={`/eventos/${evento.id}/editar`} replace>
+                  Editar evento
+                </Link>
+              )}
               {/* Destino fijo. navigate(-1) dependería del historial: después de
                   editar, "atrás" sería el formulario, no la cartelera */}
               <Link className="btn btn--secondary" to="/">

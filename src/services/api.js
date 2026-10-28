@@ -36,3 +36,29 @@ export function actualizarEvento(evento) {
 export function enviarContacto(mensaje) {
   return simularPeticion({ radicado: Math.floor(Math.random() * 90000) + 10000 }, debeFallar(mensaje.email))
 }
+
+/*
+  "POST /login" simulado. Un servidor real compara la contraseña con un hash en la
+  base de datos; aquí la lista vive en el código SOLO porque no hay backend.
+  Usuarios de prueba (contraseña 1234): admin@cartelera.co (admin) y ana@cartelera.co (usuario).
+*/
+const USUARIOS_DEMO = [
+  { id: 1, nombre: 'Ana', email: 'ana@cartelera.co', rol: 'usuario' },
+  { id: 2, nombre: 'Carlos', email: 'admin@cartelera.co', rol: 'admin' },
+]
+const PASSWORD_DEMO = '1234'
+
+// Devuelve el usuario con un token falso, o falla como lo haría un 401
+export function iniciarSesion(email, password) {
+  const usuario = USUARIOS_DEMO.find((u) => u.email === email.trim().toLowerCase())
+  const valido = usuario && password === PASSWORD_DEMO
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      if (valido) {
+        resolve({ ...usuario, token: `demo-token-${usuario.id}` })
+      } else {
+        reject(new Error('Credenciales inválidas'))
+      }
+    }, DEMORA_MS)
+  })
+}
