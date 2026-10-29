@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Route, Routes } from 'react-router'
 import Layout from './components/Layout'
+import Hero from './components/Hero'
 import RutaProtegida from './components/RutaProtegida'
 import Inicio from './pages/Inicio'
 import Admin from './pages/Admin'
@@ -8,8 +9,21 @@ import DetalleEvento from './pages/DetalleEvento'
 import EditarEvento from './pages/EditarEvento'
 import NoEncontrado from './pages/NoEncontrado'
 import Login from './pages/Login'
-// Datos fake: Vite convierte el .json en un arreglo de JS al importarlo
-import eventosIniciales from './data/eventos.json'
+import { obtenerEventos } from './services/api'
+
+// Mientras llegan los eventos (o si fallan), las páginas que los usan muestran esto.
+// Sin esperar, /eventos/3 diría "no encontrado" durante la carga.
+function EstadoEventos({ error }) {
+  return (
+    <>
+      <Hero
+        titulo={error ? 'No se pudieron cargar los eventos' : 'Cargando eventos...'}
+        texto={error ? 'Revisa tu conexión y recarga la página.' : 'Un momento, por favor.'}
+      />
+      <div className="layout" />
+    </>
+  )
+}
 
 /*
   App ahora tiene dos trabajos:
@@ -19,10 +33,31 @@ import eventosIniciales from './data/eventos.json'
   2. Declarar qué componente se pinta en cada URL (<Routes>).
 */
 function App() {
-  // Los eventos son ESTADO: al agregar uno, React vuelve a pintar la lista
-  const [eventos, setEventos] = useState(eventosIniciales)
+  // Los eventos son ESTADO: al agregar uno, React vuelve a pintar la lista.
+  // Clase Supabase: arrancan vacíos y llegan de la base de datos.
+  const [eventos, setEventos] = useState([])
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState(null)
 
-  // El formulario entrega el evento ya "guardado" por la API (con id).
+  // [] = solo al montar. La función async va ADENTRO: useEffect no acepta una async directa.
+  useEffect(() => {
+    const cargar = async () => {
+      try {
+        setEventos(await obtenerEventos())
+      } catch (err) {
+        console.error('Error al cargar los eventos:', err)
+        setError(err)
+      } finally {
+        setCargando(false)
+      }
+    }
+    cargar()
+  }, [])
+
+  // Envuelve las páginas que necesitan la lista de eventos
+  const conEventos = (pagina) => (cargando || error ? <EstadoEventos error={error} /> : pagina)
+
+  // El formulario entrega el evento ya guardado en Supabase (con el id que asignó Postgres).
   // Arreglo NUEVO con spread: nunca eventos.push(...)
   const agregarEvento = (evento) => {
     setEventos((anteriores) => [...anteriores, evento])
@@ -40,10 +75,10 @@ function App() {
       {/* Ruta padre SIN path: solo aporta el layout (header + footer) */}
       <Route element={<Layout />}>
         {/* index = la ruta "/" dentro del padre */}
-        <Route index element={<Inicio eventos={eventos} />} />
+        <Route index element={conEventos(<Inicio eventos={eventos} />)} />
         <Route path="login" element={<Login />} />
         {/* :id es dinámico: /eventos/1, /eventos/2... */}
-        <Route path="eventos/:id" element={<DetalleEvento eventos={eventos} />} />
+        <Route path="eventos/:id" element={conEventos(<DetalleEvento eventos={eventos} />)} />
 
         {/* Otra ruta padre SIN path, anidada en Layout: no cambia la URL, solo decide
             si sus hijas se muestran. Todo lo de adentro queda solo para admin. */}
@@ -51,7 +86,7 @@ function App() {
           <Route path="admin" element={<Admin onCrear={agregarEvento} />} />
           <Route
             path="eventos/:id/editar"
-            element={<EditarEvento eventos={eventos} onActualizar={actualizarEvento} />}
+            element={conEventos(<EditarEvento eventos={eventos} onActualizar={actualizarEvento} />)}
           />
         </Route>
 

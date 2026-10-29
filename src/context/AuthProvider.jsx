@@ -1,52 +1,57 @@
 import { useEffect, useState } from 'react'
 import { AuthContext } from './AuthContext'
-import { iniciarSesion } from '../services/api'
-
-const CLAVE = 'auth_user'
-
-// Lee la sesión guardada. Si alguien dejó un JSON inválido en localStorage,
-// JSON.parse lanza un error: mejor empezar sin sesión que no arrancar la app.
-function leerSesion() {
-  try {
-    const guardado = localStorage.getItem(CLAVE)
-    return guardado ? JSON.parse(guardado) : null
-  } catch {
-    return null
-  }
-}
+import { cerrarSesion, escucharSesion, iniciarSesion, obtenerPerfil } from '../services/api'
 
 /*
   Guarda QUIÉN inició sesión (autenticación) y responde QUÉ puede hacer (autorización).
-  Envuelve la app en main.jsx: cualquier componente lee la sesión con useAuth().
+  Clase Supabase: ya no guardamos nada en localStorage a mano. El SDK guarda el token
+  y nos AVISA cuando la sesión cambia (onAuthStateChange): al cargar la página,
+  al entrar, al salir y cuando renueva el token.
 */
 function AuthProvider({ children }) {
-  // Inicialización perezosa: lee localStorage UNA vez, al montar.
-  // Con useState(null), el efecto de abajo borraría la sesión guardada al arrancar.
-  const [usuario, setUsuario] = useState(leerSesion)
+  const [usuario, setUsuario] = useState(null)
+  // true hasta saber si hay sesión guardada. Sin esto, F5 en /admin mandaría al
+  // login: durante el primer render usuario todavía es null.
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Cada cambio de usuario se refleja en localStorage: F5 no cierra la sesión
   useEffect(() => {
-    if (usuario) {
-      localStorage.setItem(CLAVE, JSON.stringify(usuario))
-    } else {
-      localStorage.removeItem(CLAVE)
-    }
-  }, [usuario])
+    // Se dispara de inmediato con la sesión guardada (INITIAL_SESSION) y luego en cada cambio
+    const cancelar = escucharSesion((session) => {
+      if (!session) {
+        setUsuario(null)
+        setIsLoading(false)
+        return
+      }
+      obtenerPerfil(session.user)
+        .then(setUsuario)
+        .catch((error) => {
+          console.error('No se pudo leer el perfil:', error.message)
+          setUsuario(null)
+        })
+        .finally(() => setIsLoading(false))
+    })
+    // Limpieza: sin esto, cada montaje dejaría un listener vivo
+    return cancelar
+  }, [])
 
-  // Si las credenciales fallan, iniciarSesion rechaza y el error llega a quien llamó
-  // (la página Login), que decide cómo mostrarlo.
+  // Si las credenciales fallan, iniciarSesion rechaza y el error llega a la página Login
   const login = async (email, password) => {
     const datos = await iniciarSesion(email, password)
-    setUsuario(datos)
+    setUsuario(datos)   // ya: Login navega justo después y RutaProtegida debe ver al usuario
   }
 
-  const logout = () => setUsuario(null)
+  // Header la llama dentro de startTransition (ver Header.jsx): el cambio de estado
+  // va primero, sin esperar a la red; el aviso de Supabase llega después y no cambia nada.
+  const logout = () => {
+    setUsuario(null)
+    cerrarSesion().catch((error) => console.error('No se pudo cerrar la sesión:', error.message))
+  }
 
   // ?. : sin sesión, usuario es null y hasRole devuelve false sin lanzar error
   const hasRole = (rol) => usuario?.rol === rol
 
   return (
-    <AuthContext.Provider value={{ usuario, login, logout, hasRole }}>
+    <AuthContext.Provider value={{ usuario, isLoading, login, logout, hasRole }}>
       {children}
     </AuthContext.Provider>
   )

@@ -18,7 +18,7 @@ import { useAuth } from '../hooks/useAuth'
   la ruta /admin igual está protegida por RutaProtegida).
 */
 function Header() {
-  const { usuario, logout, hasRole } = useAuth()
+  const { usuario, isLoading, logout, hasRole } = useAuth()
   const navigate = useNavigate()
 
   /*
@@ -41,7 +41,8 @@ function Header() {
           {/* En "/" end es opcional: React Router 8 solo lo activa en la raíz */}
           <li><NavLink to="/" end>Inicio</NavLink></li>
           {hasRole('admin') && <li><NavLink to="/admin">Agregar evento</NavLink></li>}
-          {usuario ? (
+          {/* Mientras se sabe si hay sesión no pintamos "Ingresar" (parpadearía al recargar) */}
+          {isLoading ? null : usuario ? (
             <>
               <li className="nav-usuario">Hola, {usuario.nombre}</li>
               <li><button type="button" className="nav-salir" onClick={salir}>Salir</button></li>
